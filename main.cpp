@@ -1,6 +1,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui.hpp>
+#include <opencv2/imgproc.hpp>
 #include <iostream>
 #include <vector>
 #include <cmath>
@@ -55,6 +56,64 @@ void extend_compress(cv::Mat& img, int newMin, int newMax)
     }
 }
 
+// ******************* 5.1 ********************
+cv::Mat inverserImageGris(const cv::Mat& img) {
+    cv::Mat inv = img.clone();
+
+    for(int y = 0; y < img.rows; y++) {
+        for(int x = 0; x < img.cols; x++) {
+            inv.at<uchar>(y, x) = 255 - img.at<uchar>(y, x);
+        }
+    }
+
+    return inv;
+}
+
+cv::Mat inverserImageRGB(const cv::Mat& img) {
+    cv::Mat inv = img.clone();
+
+    for(int y = 0; y < img.rows; y++) {
+        for(int x = 0; x < img.cols; x++) {
+            cv::Vec3b pix = img.at<cv::Vec3b>(y, x);
+            inv.at<cv::Vec3b>(y, x)[0] = 255 - pix[0]; // B
+            inv.at<cv::Vec3b>(y, x)[1] = 255 - pix[1]; // G
+            inv.at<cv::Vec3b>(y, x)[2] = 255 - pix[2]; // R
+        }
+    }
+
+    return inv;
+}
+
+// ******************* 5.3 ********************
+cv::Mat egaliserHistogramme(const cv::Mat& img) {
+    cv::Mat result = img.clone();
+    int hist[256] = {0};
+    int cdf[256] = {0};
+
+    int totalPixels = img.rows * img.cols;
+
+    // 1. Calculer histogramme
+    for(int y = 0; y < img.rows; y++)
+        for(int x = 0; x < img.cols; x++)
+            hist[img.at<uchar>(y,x)]++;
+
+    // 2. Calculer CDF cumulée
+    cdf[0] = hist[0];
+    for(int i = 1; i < 256; i++)
+        cdf[i] = cdf[i-1] + hist[i];
+
+    // 3. Normaliser CDF et appliquer transformation
+    for(int y = 0; y < img.rows; y++) {
+        for(int x = 0; x < img.cols; x++) {
+            int v = img.at<uchar>(y,x);
+            int v_new = (int)((float)cdf[v] / totalPixels * 255.0);
+            result.at<uchar>(y,x) = v_new;
+        }
+    }
+
+    return result;
+}
+
 cv::Mat afficherHistogramme(int* hist) {
     int histSize = 256;
     int histH = 200;
@@ -80,6 +139,8 @@ cv::Mat afficherHistogramme(int* hist) {
 }
 
 int main() {
+    // 1. Lire l'image
+    cv::Mat img = cv::imread("./cathedrale.jpg");
     cv::Mat img = cv::imread("./cathedrale.jpg");
     if (img.empty()) return 1;
 
@@ -91,6 +152,12 @@ int main() {
     cv::Mat histImg = afficherHistogramme(hist1);
     cv::imshow("Histogramme Original", histImg);
     cv::waitKey(0);
+    // 2. Convertir en niveaux de gris
+    cv::Mat gray;
+    if(img.channels() == 3)
+        cv::cvtColor(img, gray, cv::COLOR_BGR2GRAY);
+    else
+        gray = img.clone();
 
     cv::imshow("Image Original", img);
     cv::waitKey(0);
@@ -101,8 +168,31 @@ int main() {
     cv::Mat histImg2 = afficherHistogramme(hist2);
     cv::imshow("Histogramme Compress", histImg2);
     cv::waitKey(0);
+    // --- IMAGE ORIGINALE ---
+    int hist[256] = {0};
+    calcul_histogramme_BW(gray, hist);
+    cv::Mat histImg = afficherHistogramme(hist);
 
-    cv::imshow("test", img);
+    // --- IMAGE INVERSEE ---
+    cv::Mat imgInversee = inverserImageGris(gray);
+    int histInv[256] = {0};
+    calcul_histogramme_BW(imgInversee, histInv);
+    cv::Mat histImgInv = afficherHistogramme(histInv);
+
+    // --- IMAGE EGALEE ---
+    cv::Mat imgEgalisee = egaliserHistogramme(gray);
+    int histEgal[256] = {0};
+    calcul_histogramme_BW(imgEgalisee, histEgal);
+    cv::Mat histImgEgal = afficherHistogramme(histEgal);
+
+    // 4. Affichage de toutes les images et histogrammes
+    cv::imshow("Image originale", gray);
+    cv::imshow("Histogramme original", histImg);
+    cv::imshow("Image inversée", imgInversee);
+    cv::imshow("Histogramme inversé", histImgInv);
+    cv::imshow("Image égalisée", imgEgalisee);
+    cv::imshow("Histogramme égalisé", histImgEgal);
+
     cv::waitKey(0);
     return 0;
 }
