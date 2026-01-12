@@ -29,6 +29,32 @@ void calcul_histogramme_RGB(cv::Mat& img, int* hist_R, int* hist_G, int* hist_B)
     }
 }
 
+void extend_compress(cv::Mat& img, int newMin, int newMax)
+{
+    int channels = img.channels();
+
+    for (int c = 0; c < channels; ++c) {
+        int minVal = 255, maxVal = 0;
+
+        for (int y = 0; y < img.rows; ++y) {
+            for (int x = 0; x < img.cols; ++x) {
+                int val = img.at<unsigned char>(y, x);
+                minVal = std::min(minVal, val);
+                maxVal = std::max(maxVal, val);
+            }
+        }
+
+        // extension par canal
+        for (int y = 0; y < img.rows; ++y) {
+            unsigned char* row = img.ptr<unsigned char>(y);
+            for (int x = c; x < img.cols * channels; x += channels) {
+                int val = row[x];
+                row[x] = (val - minVal) * (newMax - newMin) / (maxVal - minVal) + newMin;
+            }
+        }
+    }
+}
+
 cv::Mat afficherHistogramme(int* hist) {
     int histSize = 256;
     int histH = 200;
@@ -46,7 +72,7 @@ cv::Mat afficherHistogramme(int* hist) {
     for(int i = 0; i < histSize; i++) {
         int barHeight = (int)(((float)hist[i] / maxVal) * histH);
         for(int y = histH - barHeight; y < histH; y++) {  // inversé
-            histImage.at<uchar>(y, i) = 0;  // noir
+            histImage.at<unsigned char>(y, i) = 0;  // noir
         }
     }
 
@@ -54,41 +80,26 @@ cv::Mat afficherHistogramme(int* hist) {
 }
 
 int main() {
-    cv::Mat img = cv::imread("./test.jpg");
+    cv::Mat img = cv::imread("./cathedrale.jpg");
     if (img.empty()) return 1;
 
-    int histR[256] = { 0 };
-    int histG[256] = { 0 };
-    int histB[256] = { 0 };
+    int hist1[256] = { 0 };
+    int hist2[256] = { 0 };
 
-    calcul_histogramme_RGB(img, histR, histG, histB);
+    calcul_histogramme_BW(img, hist1);
 
-    // for (int y = 0; y < 1; ++y) {
-    //     for (int x = 0; x < 1; ++x) {
-    //         uchar value = img.at<uchar>(y, x);
-    //         std::cout << (int)value << ",";
-    //     }
-    //     std::cout << std::endl;
-    // }
+    cv::Mat histImg = afficherHistogramme(hist1);
+    cv::imshow("Histogramme Original", histImg);
+    cv::waitKey(0);
 
-    for (int y : histR) {
-        std::cout << y << " ";
-    }
+    cv::imshow("Image Original", img);
+    cv::waitKey(0);
 
-    std::cout << std::endl;
+    extend_compress(img, 120, 250);
+    calcul_histogramme_BW(img, hist2);
 
-    for (int y : histG) {
-        std::cout << y << " ";
-    }
-
-    std::cout << std::endl;
-
-    for (int y : histB) {
-        std::cout << y << " ";
-    }
-
-    cv::Mat histImg = afficherHistogramme(hist);
-    cv::imshow("Histogramme", histImg);
+    cv::Mat histImg2 = afficherHistogramme(hist2);
+    cv::imshow("Histogramme Compress", histImg2);
     cv::waitKey(0);
 
     cv::imshow("test", img);
