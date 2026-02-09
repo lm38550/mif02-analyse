@@ -150,6 +150,42 @@ cv::Mat convertirEnGris(const cv::Mat& img) {
     return gray;
 }
 
+cv::Mat convolution(const cv::Mat& img, const cv::Mat& matConvo, bool border)
+{
+    cv::Mat result = img.clone();
+
+    int matrixSize = matConvo.rows / 2;
+    int borderSize = border ? matrixSize : 0;
+
+    for (int y = borderSize; y < img.rows - borderSize; y++) {
+        for (int x = borderSize; x < img.cols - borderSize; x++) {
+
+            double pixelSum = 0.0;
+            double diviseur = 0.0;
+
+            for (int u = -matrixSize; u <= matrixSize; u++) {
+                for (int v = -matrixSize; v <= matrixSize; v++) {
+
+                    uchar pixel = img.at<uchar>(y+u, x+v);
+
+                    double convo =
+                        matConvo.at<double>(u + matrixSize, v + matrixSize);
+
+                    pixelSum += pixel * convo;
+                    diviseur += convo;
+                }
+            }
+
+            if (diviseur != 0)
+                pixelSum /= diviseur;
+
+            result.at<uchar>(y,x) = cv::saturate_cast<uchar>(pixelSum);
+        }
+    }
+
+    return result;
+}
+
 int main() {
     // ---- Chargement de l'image Originale ----
     cv::Mat img = cv::imread("./cathedrale.jpg");
@@ -208,7 +244,6 @@ int main() {
     cv::imshow("Image Egalise", img_egalise);
     cv::waitKey(0);
 
-
     // ---- Calcul de l'image en gris ----
     cv::Mat img_gris = convertirEnGris(img);
 
@@ -221,6 +256,39 @@ int main() {
     cv::waitKey(0);
 
     cv::imshow("Image Gris", img_gris);
+    cv::waitKey(0);
+
+    // ---- Calcul de contours ----
+    cv::Mat mat_contours = (cv::Mat_<double>(3,3) << -1, -1, -1, 0, 0, 0, 1, 1, 1);
+    cv::Mat img_contours = convolution(img_gris, mat_contours,true);
+
+    // ---- Calcul de l'histogramme et affichages ----
+    int hist_contours[256] = { 0 };
+    calcul_histogramme_BW(img_contours, hist_contours);
+
+    cv::Mat histImg_contours = afficherHistogramme(hist_contours);
+    cv::imshow("Histogramme Contours", histImg_contours);
+    cv::waitKey(0);
+
+    cv::imshow("Image Contours", img_contours);
+    cv::waitKey(0);
+
+
+    // ---- Calcul de filtre ----
+    //cv::Mat mat_filtre = (cv::Mat_<double>(3,3) << 1, 2, 1, 2, 4, 2, 1, 2, 1);
+    cv::Mat mat_filtre = (cv::Mat_<double>(5,5) << 1,4,7,4,1,4,16,26,16,4,7,26,41,26,7,1,4,7,4,1,4,16,26,16,4);
+
+    cv::Mat img_filtre = convolution(img_gris, mat_filtre,true);
+
+    // ---- Calcul de l'histogramme et affichages ----
+    int hist_filtre[256] = { 0 };
+    calcul_histogramme_BW(img_filtre, hist_filtre);
+
+    cv::Mat histImg_filtre = afficherHistogramme(hist_filtre);
+    cv::imshow("Histogramme Filtre", histImg_filtre);
+    cv::waitKey(0);
+
+    cv::imshow("Image Filtre", img_filtre);
     cv::waitKey(0);
 
     return 0;
